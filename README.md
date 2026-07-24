@@ -172,7 +172,7 @@ Contributions are always welcome! Here's how to get started:
 ```
 MIT License
 
-Copyright (c) 2026 Ananthu T P
+Copyright (c) 2026 im_atp
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
