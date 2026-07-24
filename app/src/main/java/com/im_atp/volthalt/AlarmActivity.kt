@@ -1,4 +1,4 @@
-package com.example.batteryalarm
+package com.im_atp.volthalt
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -35,56 +35,49 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.batteryalarm.ui.theme.VoltHaltTheme
+import com.im_atp.volthalt.ui.theme.VoltHaltTheme
 
 class AlarmActivity : ComponentActivity() {
 
     private var wakeLock: PowerManager.WakeLock? = null
 
-    // The alarm type shown on this screen (MAX or LOW).
-    private var currentAlarmType: String = BatteryService.ALARM_TYPE_MAX
+    // Which alarm type this screen is currently showing.
+    private var currentAlarmType = BatteryService.ALARM_TYPE_MAX
 
-    // ── Receiver 1: service signals alarm has been stopped ───────────────────
-    // Fired by BatteryService.broadcastAlarmStopped() — covers "Stop Alarm"
-    // button in the notification and the activity's own stop button.
+    companion object {
+        private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L  // 10 minutes
+    }
+
+    // BatteryService sends this when the alarm has been stopped (e.g. via the
+    // notification "Stop Alarm" action), so we can dismiss ourselves.
     private val alarmStoppedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == BatteryService.ACTION_ALARM_STOPPED) {
-                finish()
-            }
+            if (intent?.action == BatteryService.ACTION_ALARM_STOPPED) finish()
         }
     }
 
-    // ── Receiver 2: charger state change ─────────────────────────────────────
-    // When showing a MAX BATTERY alarm the subtitle says "unplug your charger".
-    // This receiver watches for that event so the screen closes automatically
-    // even if the service's isMaxAlarmPlaying flag was already cleared (e.g.
-    // the user had previously tapped "Stop Alarm" on the notification, which
-    // silences audio but leaves the full-screen activity open).
+    // For max-battery alarms we watch for the charger being unplugged.
+    // When that happens the alarm condition is resolved and we dismiss.
     private val batteryStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action != Intent.ACTION_BATTERY_CHANGED) return
             if (currentAlarmType != BatteryService.ALARM_TYPE_MAX) return
 
-            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val status     = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
             val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                              status == BatteryManager.BATTERY_STATUS_FULL
 
-            if (!isCharging) {
-                // Charger was unplugged — dismiss the max-charge screen.
-                finish()
-            }
+            if (!isCharging) finish()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ── Turn screen on and show over lock screen ──────────────────────────
+        // Make sure the screen turns on and the alarm shows over the lock screen.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            // Keep screen on while alarm is showing
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             @Suppress("DEPRECATION")
@@ -95,14 +88,17 @@ class AlarmActivity : ComponentActivity() {
             )
         }
 
-        // ── Acquire wake lock to keep CPU awake ───────────────────────────────
+        // Wake lock keeps the CPU running while the alarm screen is visible.
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "VoltHalt::AlarmWakeLock"
-        ).apply { acquire(10 * 60 * 1000L) /* max 10 min */ }
+        ).apply { acquire(WAKE_LOCK_TIMEOUT_MS) }
 
-        // ── Register for "alarm stopped" broadcast ────────────────────────────
+        // ACTION_BATTERY_CHANGED is sticky, so registering immediately delivers
+        // the current state without waiting for the next broadcast.
+        registerReceiver(batteryStateReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+
         val alarmFilter = IntentFilter(BatteryService.ACTION_ALARM_STOPPED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(alarmStoppedReceiver, alarmFilter, RECEIVER_NOT_EXPORTED)
@@ -110,18 +106,13 @@ class AlarmActivity : ComponentActivity() {
             registerReceiver(alarmStoppedReceiver, alarmFilter)
         }
 
-        // ── Register for battery state changes ────────────────────────────────
-        // ACTION_BATTERY_CHANGED is a sticky broadcast, so registering immediately
-        // delivers the current state — no need for a separate initial check.
-        registerReceiver(batteryStateReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-
         val alarmType = intent?.getStringExtra(BatteryService.EXTRA_ALARM_TYPE)
             ?: BatteryService.ALARM_TYPE_MAX
 
         showAlarmUi(alarmType)
     }
 
-    // Called when activity is already running and a new alarm intent arrives
+    // Called when the activity is already running and a new alarm intent arrives.
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -146,17 +137,16 @@ class AlarmActivity : ComponentActivity() {
     }
 
     private fun stopAlarmInService() {
-        val stopIntent = Intent(this, BatteryService::class.java).apply {
-            action = BatteryService.ACTION_STOP_ALARM
-        }
-        startService(stopIntent)
+        startService(
+            Intent(this, BatteryService::class.java).apply {
+                action = BatteryService.ACTION_STOP_ALARM
+            }
+        )
     }
 
-    // Prevent back button from dismissing the alarm screen
+    // Prevent the back button from dismissing the alarm — the user must press Stop.
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // Do nothing — user must press the Stop button or unplug the charger
-    }
+    override fun onBackPressed() { /* intentionally empty */ }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -167,8 +157,6 @@ class AlarmActivity : ComponentActivity() {
     }
 }
 
-// ── Full-screen Compose UI ───────────────────────────────────────────────────
-
 @Composable
 private fun AlarmScreen(
     alarmType: String,
@@ -177,13 +165,9 @@ private fun AlarmScreen(
     val isMaxBattery = alarmType == BatteryService.ALARM_TYPE_MAX
 
     val backgroundGradient = if (isMaxBattery) {
-        Brush.radialGradient(
-            colors = listOf(Color(0xFF1A3A1A), Color(0xFF0D1F0D), Color(0xFF050E05))
-        )
+        Brush.radialGradient(colors = listOf(Color(0xFF1A3A1A), Color(0xFF0D1F0D), Color(0xFF050E05)))
     } else {
-        Brush.radialGradient(
-            colors = listOf(Color(0xFF3A1A1A), Color(0xFF1F0D0D), Color(0xFF0E0505))
-        )
+        Brush.radialGradient(colors = listOf(Color(0xFF3A1A1A), Color(0xFF1F0D0D), Color(0xFF0E0505)))
     }
 
     val accentColor = if (isMaxBattery) Color(0xFF4ADE80) else Color(0xFFFB923C)
@@ -193,13 +177,12 @@ private fun AlarmScreen(
     else
         "Your battery is critically low.\nPlease plug in your charger."
 
-    // ── Pulsing animation ──────────────────────────────────────────────────
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
         initialValue = 0.88f,
         targetValue  = 1.12f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
+            animation  = tween(800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "iconScale"
@@ -208,7 +191,7 @@ private fun AlarmScreen(
         initialValue = 0.15f,
         targetValue  = 0.5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
+            animation  = tween(900, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "ringAlpha"
@@ -229,35 +212,26 @@ private fun AlarmScreen(
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            // Pulsing icon
             Box(contentAlignment = Alignment.Center) {
-                // Outer glow ring
+                // Pulsing outer glow ring
                 Box(
                     modifier = Modifier
                         .size(160.dp)
                         .scale(scale)
-                        .background(
-                            color = accentColor.copy(alpha = ringAlpha),
-                            shape = CircleShape
-                        )
+                        .background(accentColor.copy(alpha = ringAlpha), CircleShape)
                 )
-                // Inner circle
+                // Icon container
                 Box(
                     modifier = Modifier
                         .size(110.dp)
-                        .background(
-                            color = accentColor.copy(alpha = 0.15f),
-                            shape = CircleShape
-                        ),
+                        .background(accentColor.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isMaxBattery) Icons.Default.BatteryFull else Icons.Default.BatteryAlert,
                         contentDescription = null,
-                        tint   = accentColor,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .scale(scale)
+                        tint     = accentColor,
+                        modifier = Modifier.size(56.dp).scale(scale)
                     )
                 }
             }
@@ -275,32 +249,29 @@ private fun AlarmScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text      = subtitle,
-                fontSize  = 15.sp,
-                color     = Color.White.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center,
+                text       = subtitle,
+                fontSize   = 15.sp,
+                color      = Color.White.copy(alpha = 0.7f),
+                textAlign  = TextAlign.Center,
                 lineHeight = 22.sp
             )
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Stop button
             Button(
-                onClick = onStopAlarm,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
+                onClick  = onStopAlarm,
+                modifier = Modifier.fillMaxWidth().height(64.dp),
+                shape    = RoundedCornerShape(20.dp),
+                colors   = ButtonDefaults.buttonColors(
                     containerColor = accentColor,
                     contentColor   = Color(0xFF050505)
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
             ) {
                 Text(
-                    text       = "STOP ALARM",
-                    fontSize   = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    text          = "STOP ALARM",
+                    fontSize      = 18.sp,
+                    fontWeight    = FontWeight.ExtraBold,
                     letterSpacing = 2.sp
                 )
             }
