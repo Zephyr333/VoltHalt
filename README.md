@@ -2,76 +2,110 @@
 
 # ⚡ VoltHalt
 
-### Smart Battery Charge Alarm for Android
+### Smart Battery Charge & Low Alarm for Android
 
-**Stop overcharging. Set your target. VoltHalt does the rest.**
+**Protect battery health. Stop overcharging. 100% Offline & Private.**
 
 [![Release](https://img.shields.io/github/v/release/im-atp/VoltHalt?color=F5A623&label=Download&logo=android)](https://github.com/im-atp/VoltHalt/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-brightgreen?logo=android)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-2024-blue?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-blue?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+[![Privacy: 100% Offline](https://img.shields.io/badge/Privacy-100%25%20Offline%20(No%20Internet)-success?logo=googlechrome)](https://github.com/im-atp/VoltHalt)
 [![Stars](https://img.shields.io/github/stars/im-atp/VoltHalt?style=social)](https://github.com/im-atp/VoltHalt/stargazers)
 
 </div>
 
 ---
 
-## What is VoltHalt?
+## 📖 What is VoltHalt?
 
-**VoltHalt** is a free, open-source Android app that monitors your battery level in the background and plays a loud alarm the moment your phone reaches your chosen charge percentage. Unlike manufacturer battery limits, VoltHalt works on **any Android 8.0+ device** without root.
+**VoltHalt** is a light-weight, open-source Android app that monitors your battery level in the background and alerts you with a loud alarm or a custom **Text-to-Speech voice message** when your battery reaches a target charge or drops too low. 
 
-> Battery health experts recommend keeping lithium-ion batteries between **20% and 80%** for maximum lifespan. VoltHalt makes this effortless.
+Unlike built-in manufacturer limits, VoltHalt works on **any Android 8.0+ device** without root, features a convenient **Quick Settings (QS) Tile**, and operates **100% offline** with zero data collection or internet permission.
+
+> 🔋 **Battery Health Tip:** Keeping lithium-ion batteries between **20% and 80%** significantly extends their overall lifespan. VoltHalt automates this for both charging and discharging.
 
 ---
 
-## Features
+## 🔒 100% Offline & Privacy First (Zero Internet Access)
+
+VoltHalt is built with absolute privacy in mind:
+
+- ❌ **NO `android.permission.INTERNET` requested or required.**
+- 🛡️ **Zero Data Collection**: No telemetry, no analytics, no ad networks, no tracking scripts.
+- ⚡ **Zero External Network Calls**: Everything runs completely locally on your device.
+- 🔋 **Maximum Battery & RAM Efficiency**: No background network wake-ups or server polling.
+
+---
+
+## ✨ Full Feature List
+
+VoltHalt is packed with essential features to keep your battery healthy while giving you total control:
 
 | Feature | Description |
 |---------|-------------|
-| **Custom Charge Target** | Set any percentage from 1–99% as your alarm trigger |
-| **Max Volume Alarm** | Forces maximum speaker volume so you always hear it |
-| **Full-Screen Alert** | Alarm screen wakes your phone even when locked |
-| **Quick Settings Tile** | Toggle the alarm directly from your notification shade |
-| **Auto-Dismiss** | Alarm screen closes automatically when you unplug |
-| **Boot Persistence** | Service restarts automatically after device reboot |
-| **Battery Optimized** | Requests battery optimization exemption for reliability |
-| **Share APK** | Share the app directly with friends from within the app |
-| **Material 3 UI** | Clean, modern dark-mode interface built with Jetpack Compose |
+| 🎯 **Max Battery Charge Alarm** | Set any target percentage (1–100%) to trigger an alarm while charging. |
+| 🪫 **Low Battery Alarm** | Set a low battery threshold (5–50%) to alert you when unplugged and battery drops low. |
+| 🎛️ **Quick Settings (QS) Tile** | Toggle monitoring directly from your Android notification shade with a single tap. |
+| 🗣️ **Text-to-Speech (TTS) Voices** | Pick between system alarm ringtones OR custom spoken voice messages (e.g. *"Battery charged to 80%, please unplug!"*). |
+| 🔒 **Full-Screen Lock Overlay** | Full-screen alert screen (`AlarmActivity`) wakes your device even when locked. |
+| 🔄 **Smart Auto-Dismiss** | Max charge alarm automatically stops the moment you unplug the charger. |
+| 🎧 **Interactive 5s Alarm Preview** | Test your saved ringtone, TTS speech message, volume, and vibration with a single tap before activating. |
+| 🔊 **Custom Volume & Vibration** | Independent volume sliders (0–100%) and vibration toggles for both max and low alarms. |
+| 🌙 **Material 3 Theme Support** | Switch effortlessly between **System Default**, **Light Theme**, and **Dark Theme**. |
+| 🚀 **Boot Persistence** | Automatically resumes battery monitoring after device reboots (`RECEIVE_BOOT_COMPLETED`). |
+| 📤 **Direct In-App APK Sharing** | Share the app APK file directly with friends via `FileProvider` (`content://` URI) without external links. |
+| ⚙️ **Onboarding Setup Wizard** | Guided setup for battery optimization exemptions, notification permissions, and full-screen intent access. |
 
 ---
 
-## Download
+## 🎛️ Quick Settings (QS) Tile Feature
+
+VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access without needing to launch the app UI:
+
+- ⚡ **One-Tap Toggle**: Swipe down your Android notification shade and tap the **VoltHalt** tile to instantly turn battery monitoring on or off.
+- 🔄 **Real-Time Sync**: Tile state updates automatically to reflect whether active background monitoring is running (`"Alarm On"` / `"Alarm Off"`).
+- ⚙️ **Long-Press Shortcut**: Long-pressing the VoltHalt Quick Settings tile directly opens the app settings screen.
+- 🛠️ **How to Add**:
+  1. Swipe down twice from the top of your screen to expand Quick Settings.
+  2. Tap the **Edit (pencil ✏️)** icon.
+  3. Scroll down to find **VoltHalt**, drag it into your active tiles, and tap Done.
+
+---
+
+## 📲 Download
 
 <div align="center">
 
-### [Download Latest APK](https://github.com/im-atp/VoltHalt/releases/latest)
+### [⬇️ Download Latest APK](https://github.com/im-atp/VoltHalt/releases/latest)
 
 </div>
 
-> **Note:** Since this APK is not from the Play Store, you need to enable **"Install from unknown sources"** in your Android settings before installing.
+> **Note:** Since this APK is distributed directly on GitHub, enable **"Install from unknown sources"** in your Android settings if prompted.
 >
-> **Settings → Security → Install unknown apps** → Allow for your file manager
+> **Settings → Security → Install unknown apps** → Allow for your browser or file manager.
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 - **Language**: [Kotlin](https://kotlinlang.org/)
-- **UI**: [Jetpack Compose](https://developer.android.com/jetpack/compose) + [Material 3](https://m3.material.io/)
-- **Architecture**: Single-Activity with Compose Navigation
-- **Persistence**: [DataStore Preferences](https://developer.android.com/topic/libraries/architecture/datastore)
-- **Background Service**: Android Foreground Service with `BroadcastReceiver`
+- **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) + [Material 3](https://m3.material.io/)
+- **Architecture**: Single-Activity Compose with DataStore state management
+- **Persistence**: [Preferences DataStore](https://developer.android.com/topic/libraries/architecture/datastore)
+- **Background Service**: Android Foreground Service (`BatteryService`) with `BroadcastReceiver`
+- **System Integration**: `TileService` for Quick Settings & `TextToSpeech` engine for voice alerts
 - **Minimum SDK**: Android 8.0 (API 26)
 - **Target SDK**: Android 14 (API 34)
 
 ---
 
-## Build from Source
+## 🚀 Build from Source
 
 ### Requirements
 - Android Studio Hedgehog (2023.1.1) or newer
-- JDK 8+
+- JDK 17 / JDK 8+
 - Android SDK 34
 
 ### Steps
@@ -98,27 +132,27 @@ git clone https://github.com/im-atp/VoltHalt.git
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 VoltHalt/
 ├── app/
 │   └── src/main/
-│       ├── java/com/example/batteryalarm/
-│       │   ├── MainActivity.kt          # App entry point
-│       │   ├── AlarmActivity.kt         # Full-screen alarm overlay
-│       │   ├── BatteryService.kt        # Background monitoring service
-│       │   ├── AlarmPlayer.kt           # Audio playback at max volume
-│       │   ├── AlarmTileService.kt      # Quick Settings tile
-│       │   ├── PreferencesManager.kt    # DataStore persistence
+│       ├── java/com/im_atp/volthalt/
+│       │   ├── MainActivity.kt          # App entry point & setup routing
+│       │   ├── AlarmActivity.kt         # Full-screen lock screen alarm overlay
+│       │   ├── BatteryService.kt        # Background sticky broadcast monitoring service
+│       │   ├── AlarmPlayer.kt           # Ringtone audio & Text-to-Speech playback manager
+│       │   ├── AlarmTileService.kt      # Android Quick Settings (QS) Tile handler
+│       │   ├── PreferencesManager.kt    # DataStore Preferences for settings & TTS phrases
 │       │   └── ui/
 │       │       ├── screens/
-│       │       │   ├── MainScreen.kt    # Home UI
-│       │       │   ├── SettingsScreen.kt
-│       │       │   └── SetupScreen.kt
+│       │       │   ├── MainScreen.kt    # Home dashboard, battery level, alarm cards & preview
+│       │       │   ├── SettingsScreen.kt# Max/Low alarm targets, volume, TTS, themes & setup
+│       │       │   └── SetupScreen.kt   # Permission onboarding wizard
 │       │       └── theme/
-│       │           └── Theme.kt
-│       ├── res/                         # Icons, strings, themes
+│       │           └── Theme.kt         # Material 3 dark/light design system
+│       ├── res/                         # Vector icons, string resources & XML configurations
 │       └── AndroidManifest.xml
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -127,47 +161,46 @@ VoltHalt/
 
 ---
 
-## Permissions Explained
+## 🔐 Permissions Explained
 
-VoltHalt requests only what it truly needs:
+VoltHalt requests only what is essential for reliable alarm functionality:
 
 | Permission | Why it's needed |
 |-----------|----------------|
-| `FOREGROUND_SERVICE` | Run monitoring service without Android killing it |
-| `VIBRATE` | Vibrate alongside the alarm sound |
-| `POST_NOTIFICATIONS` | Show a persistent notification while monitoring |
-| `RECEIVE_BOOT_COMPLETED` | Restart the service after a device reboot |
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prevent Android from suspending the service |
-| `WAKE_LOCK` | Wake the CPU to fire the alarm reliably |
-| `USE_FULL_SCREEN_INTENT` | Show alarm screen over the lock screen (Android 14+) |
+| `FOREGROUND_SERVICE` | Keeps monitoring service alive in background without Android killing it |
+| `VIBRATE` | Provides haptic vibration during alarm playback |
+| `POST_NOTIFICATIONS` | Shows persistent monitoring status in notification shade (Android 13+) |
+| `RECEIVE_BOOT_COMPLETED` | Restores battery alarm monitoring automatically after phone restarts |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Ensures timely alarm triggers on aggressive OEM battery savers |
+| `WAKE_LOCK` | Wakes the CPU briefly so the alarm fires instantly at target level |
+| `USE_FULL_SCREEN_INTENT` | Displays the full-screen alarm screen over the lock screen (Android 14+) |
 
-> ⚠️VoltHalt does **not** access the internet, your contacts, location, camera, or microphone.
+> 🚫 **Zero Internet Permission:** `android.permission.INTERNET` is **NOT** included in the app manifest. VoltHalt cannot send data anywhere.
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are always welcome! Here's how to get started:
+Contributions, feature requests, and bug reports are welcome!
 
 1. **Fork** this repository
-2. Create a new branch: `git checkout -b feature/your-feature-name`
-3. Make your changes and commit: `git commit -m 'feat: add some feature'`
-4. Push to your fork: `git push origin feature/your-feature-name`
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'feat: add amazing feature'`
+4. Push to your branch: `git push origin feature/amazing-feature`
 5. Open a **Pull Request**
 
 ---
 
-## Found a Bug?
+## 🐛 Found a Bug?
 
-[Open an issue](https://github.com/im-atp/VoltHalt/issues/new) and include:
-- Your Android version
-- Device model
-- Steps to reproduce the bug
-- What you expected vs. what happened
+[Open an Issue](https://github.com/im-atp/VoltHalt/issues/new) and include:
+- Your Android version & Device model
+- Detailed steps to reproduce
+- Expected vs actual behavior
 
 ---
 
-## License
+## 📄 License
 
 ```
 MIT License
@@ -197,6 +230,6 @@ SOFTWARE.
 
 <div align="center">
 
-**If VoltHalt saved your battery, give it a ⭐ — it really helps!**
+**If VoltHalt helped protect your battery, give it a ⭐ — it helps the project grow!**
 
 </div>
