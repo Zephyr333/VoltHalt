@@ -93,6 +93,8 @@ VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access 
   </tr>
 </table>
 
+---
+
 ##  Download
 
 <div align="center">
