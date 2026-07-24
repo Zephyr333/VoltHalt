@@ -74,6 +74,25 @@ VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access 
 
 ---
 
+##  App Showcase
+
+<table border="0">
+  <tr>
+    <!-- Left Column: 3 Standard Screens Stacked Vertically -->
+    <td width="40%" align="center" valign="top">
+      <img src="https://github.com/user-attachments/assets/f488f14a-6bcf-4a84-988b-7b0889a0d21f" width="90%" alt="Screen 1" />
+      <br/><br/>
+      <img src="https://github.com/user-attachments/assets/09da40cc-bd1b-4e1f-8d8c-450a40e568c3" width="90%" alt="Screen 2" />
+      <br/><br/>
+      <img src="https://github.com/user-attachments/assets/3364be52-2187-4d4d-81a2-cb0a22ff7800" width="90%" alt="Screen 3" />
+    </td>
+    <!-- Right Column: 1 Long Scrolling Screen -->
+    <td width="60%" align="center" valign="top">
+      <img src="https://github.com/user-attachments/assets/ae11a7da-b821-4655-9a00-8705b3eb3da6" width="95%" alt="Full Feature Walkthrough" />
+    </td>
+  </tr>
+</table>
+
 ##  Download
 
 <div align="center">
