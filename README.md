@@ -18,67 +18,67 @@
 
 ---
 
-## 📖 What is VoltHalt?
+##  What is VoltHalt?
 
 **VoltHalt** is a light-weight, open-source Android app that monitors your battery level in the background and alerts you with a loud alarm or a custom **Text-to-Speech voice message** when your battery reaches a target charge or drops too low. 
 
 Unlike built-in manufacturer limits, VoltHalt works on **any Android 8.0+ device** without root, features a convenient **Quick Settings (QS) Tile**, and operates **100% offline** with zero data collection or internet permission.
 
-> 🔋 **Battery Health Tip:** Keeping lithium-ion batteries between **20% and 80%** significantly extends their overall lifespan. VoltHalt automates this for both charging and discharging.
+>  **Battery Health Tip:** Keeping lithium-ion batteries between **20% and 80%** significantly extends their overall lifespan. VoltHalt automates this for both charging and discharging.
 
 ---
 
-## 🔒 100% Offline & Privacy First (Zero Internet Access)
+##  100% Offline & Privacy First (Zero Internet Access)
 
 VoltHalt is built with absolute privacy in mind:
 
-- ❌ **NO `android.permission.INTERNET` requested or required.**
-- 🛡️ **Zero Data Collection**: No telemetry, no analytics, no ad networks, no tracking scripts.
-- ⚡ **Zero External Network Calls**: Everything runs completely locally on your device.
-- 🔋 **Maximum Battery & RAM Efficiency**: No background network wake-ups or server polling.
+-  **NO `android.permission.INTERNET` requested or required.**
+-  **Zero Data Collection**: No telemetry, no analytics, no ad networks, no tracking scripts.
+-  **Zero External Network Calls**: Everything runs completely locally on your device.
+-  **Maximum Battery & RAM Efficiency**: No background network wake-ups or server polling.
 
 ---
 
-## ✨ Full Feature List
+##  Full Feature List
 
 VoltHalt is packed with essential features to keep your battery healthy while giving you total control:
 
 | Feature | Description |
 |---------|-------------|
-| 🎯 **Max Battery Charge Alarm** | Set any target percentage (1–100%) to trigger an alarm while charging. |
-| 🪫 **Low Battery Alarm** | Set a low battery threshold (5–50%) to alert you when unplugged and battery drops low. |
-| 🎛️ **Quick Settings (QS) Tile** | Toggle monitoring directly from your Android notification shade with a single tap. |
-| 🗣️ **Text-to-Speech (TTS) Voices** | Pick between system alarm ringtones OR custom spoken voice messages (e.g. *"Battery charged to 80%, please unplug!"*). |
-| 🔒 **Full-Screen Lock Overlay** | Full-screen alert screen (`AlarmActivity`) wakes your device even when locked. |
-| 🔄 **Smart Auto-Dismiss** | Max charge alarm automatically stops the moment you unplug the charger. |
-| 🎧 **Interactive 5s Alarm Preview** | Test your saved ringtone, TTS speech message, volume, and vibration with a single tap before activating. |
-| 🔊 **Custom Volume & Vibration** | Independent volume sliders (0–100%) and vibration toggles for both max and low alarms. |
-| 🌙 **Material 3 Theme Support** | Switch effortlessly between **System Default**, **Light Theme**, and **Dark Theme**. |
-| 🚀 **Boot Persistence** | Automatically resumes battery monitoring after device reboots (`RECEIVE_BOOT_COMPLETED`). |
-| 📤 **Direct In-App APK Sharing** | Share the app APK file directly with friends via `FileProvider` (`content://` URI) without external links. |
-| ⚙️ **Onboarding Setup Wizard** | Guided setup for battery optimization exemptions, notification permissions, and full-screen intent access. |
+|  **Max Battery Charge Alarm** | Set any target percentage (1–100%) to trigger an alarm while charging. |
+|  **Low Battery Alarm** | Set a low battery threshold (5–50%) to alert you when unplugged and battery drops low. |
+|  **Quick Settings (QS) Tile** | Toggle monitoring directly from your Android notification shade with a single tap. |
+|  **Text-to-Speech (TTS) Voices** | Pick between system alarm ringtones OR custom spoken voice messages (e.g. *"Battery charged to 80%, please unplug!"*). |
+|  **Full-Screen Lock Overlay** | Full-screen alert screen (`AlarmActivity`) wakes your device even when locked. |
+|  **Smart Auto-Dismiss** | Max charge alarm automatically stops the moment you unplug the charger. |
+|  **Interactive 5s Alarm Preview** | Test your saved ringtone, TTS speech message, volume, and vibration with a single tap before activating. |
+|  **Custom Volume & Vibration** | Independent volume sliders (0–100%) and vibration toggles for both max and low alarms. |
+|  **Material 3 Theme Support** | Switch effortlessly between **System Default**, **Light Theme**, and **Dark Theme**. |
+|  **Boot Persistence** | Automatically resumes battery monitoring after device reboots (`RECEIVE_BOOT_COMPLETED`). |
+|  **Direct In-App APK Sharing** | Share the app APK file directly with friends via `FileProvider` (`content://` URI) without external links. |
+|  **Onboarding Setup Wizard** | Guided setup for battery optimization exemptions, notification permissions, and full-screen intent access. |
 
 ---
 
-## 🎛️ Quick Settings (QS) Tile Feature
+##  Quick Settings (QS) Tile Feature
 
 VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access without needing to launch the app UI:
 
-- ⚡ **One-Tap Toggle**: Swipe down your Android notification shade and tap the **VoltHalt** tile to instantly turn battery monitoring on or off.
-- 🔄 **Real-Time Sync**: Tile state updates automatically to reflect whether active background monitoring is running (`"Alarm On"` / `"Alarm Off"`).
-- ⚙️ **Long-Press Shortcut**: Long-pressing the VoltHalt Quick Settings tile directly opens the app settings screen.
-- 🛠️ **How to Add**:
+-  **One-Tap Toggle**: Swipe down your Android notification shade and tap the **VoltHalt** tile to instantly turn battery monitoring on or off.
+-  **Real-Time Sync**: Tile state updates automatically to reflect whether active background monitoring is running (`"Alarm On"` / `"Alarm Off"`).
+-  **Long-Press Shortcut**: Long-pressing the VoltHalt Quick Settings tile directly opens the app settings screen.
+-  **How to Add**:
   1. Swipe down twice from the top of your screen to expand Quick Settings.
-  2. Tap the **Edit (pencil ✏️)** icon.
+  2. Tap the **Edit (pencil)** icon.
   3. Scroll down to find **VoltHalt**, drag it into your active tiles, and tap Done.
 
 ---
 
-## 📲 Download
+##  Download
 
 <div align="center">
 
-### [⬇️ Download Latest APK](https://github.com/im-atp/VoltHalt/releases/latest)
+### [ Download Latest APK](https://github.com/im-atp/VoltHalt/releases/latest)
 
 </div>
 
@@ -88,7 +88,7 @@ VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access 
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Language**: [Kotlin](https://kotlinlang.org/)
 - **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) + [Material 3](https://m3.material.io/)
@@ -101,7 +101,7 @@ VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access 
 
 ---
 
-## 🚀 Build from Source
+##  Build from Source
 
 ### Requirements
 - Android Studio Hedgehog (2023.1.1) or newer
@@ -132,7 +132,7 @@ git clone https://github.com/im-atp/VoltHalt.git
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 VoltHalt/
@@ -161,7 +161,7 @@ VoltHalt/
 
 ---
 
-## 🔐 Permissions Explained
+##  Permissions Explained
 
 VoltHalt requests only what is essential for reliable alarm functionality:
 
@@ -175,11 +175,11 @@ VoltHalt requests only what is essential for reliable alarm functionality:
 | `WAKE_LOCK` | Wakes the CPU briefly so the alarm fires instantly at target level |
 | `USE_FULL_SCREEN_INTENT` | Displays the full-screen alarm screen over the lock screen (Android 14+) |
 
-> 🚫 **Zero Internet Permission:** `android.permission.INTERNET` is **NOT** included in the app manifest. VoltHalt cannot send data anywhere.
+>  **Zero Internet Permission:** `android.permission.INTERNET` is **NOT** included in the app manifest. VoltHalt cannot send data anywhere.
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions, feature requests, and bug reports are welcome!
 
@@ -191,7 +191,7 @@ Contributions, feature requests, and bug reports are welcome!
 
 ---
 
-## 🐛 Found a Bug?
+##  Found a Bug?
 
 [Open an Issue](https://github.com/im-atp/VoltHalt/issues/new) and include:
 - Your Android version & Device model
@@ -200,7 +200,7 @@ Contributions, feature requests, and bug reports are welcome!
 
 ---
 
-## 📄 License
+##  License
 
 ```
 MIT License
