@@ -59,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.im_atp.volthalt.PreferencesManager
+import com.im_atp.volthalt.MonitoringController
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -70,6 +71,7 @@ fun SettingsScreen(
     onNavigateToSetup: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // Max battery alarm state
     val maxTarget    by preferencesManager.targetPercentageFlow.collectAsState(initial = 80)
@@ -198,7 +200,12 @@ fun SettingsScreen(
                 }
                 Switch(
                     checked         = lowEnabled,
-                    onCheckedChange = { coroutineScope.launch { preferencesManager.setLowAlarmEnabled(it) } },
+                    onCheckedChange = { enabled ->
+                        coroutineScope.launch {
+                            preferencesManager.setLowAlarmEnabled(enabled)
+                            MonitoringController.reconcile(context)
+                        }
+                    },
                     colors = SwitchDefaults.colors(checkedTrackColor = lowAccent)
                 )
             }

@@ -9,7 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import android.util.Log
 import kotlinx.coroutines.launch
 
 /**
@@ -19,9 +20,7 @@ import kotlinx.coroutines.launch
  * whenever either alarm is enabled — so it accurately reflects whether any
  * background monitoring is happening.
  *
- * Tapping the tile updates the UI immediately (no DataStore round-trip wait),
- * giving it a snappy feel. A flow collector keeps it in sync if the alarm state
- * changes from inside the app.
+ * Tapping toggles the persisted max alarm. Low-only monitoring stays active.
  */
 class AlarmTileService : TileService() {
 
@@ -36,12 +35,9 @@ class AlarmTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
+        listeningJob?.cancel()
         listeningJob = serviceScope.launch {
-            combine(
-                preferencesManager.alarmEnabledFlow,
-                preferencesManager.lowAlarmEnabledFlow
-            ) { maxEnabled, lowEnabled -> maxEnabled || lowEnabled }
-            .collect { anyEnabled -> applyTileState(anyEnabled) }
+            preferencesManager.monitoringSettingsFlow.collect { applyTileState(it.enabled) }
         }
     }
 
@@ -54,33 +50,15 @@ class AlarmTileService : TileService() {
     override fun onClick() {
         super.onClick()
 
-        val isCurrentlyActive = qsTile?.state == Tile.STATE_ACTIVE
-        val newActive = !isCurrentlyActive
-
-        // Update the tile immediately so it feels responsive to the tap.
-        applyTileState(newActive)
-
-        if (newActive) {
-            serviceScope.launch { preferencesManager.setAlarmEnabled(true) }
+        serviceScope.launch {
             try {
-                val intent = Intent(applicationContext, BatteryService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    applicationContext.startForegroundService(intent)
-                } else {
-                    applicationContext.startService(intent)
-                }
-            } catch (_: Exception) {
-                // Background-start restriction on some OEMs — silently ignore.
+                val current = preferencesManager.monitoringSettingsFlow.first()
+                preferencesManager.setAlarmEnabled(!current.maxEnabled)
+                MonitoringController.reconcile(applicationContext)
+                applyTileState(preferencesManager.monitoringSettingsFlow.first().enabled)
+            } catch (e: Exception) {
+                Log.e("VoltHaltMonitoring", "Unable to toggle max alarm from tile", e)
             }
-        } else {
-            serviceScope.launch { preferencesManager.setAlarmEnabled(false) }
-            try {
-                applicationContext.startService(
-                    Intent(applicationContext, BatteryService::class.java).apply {
-                        action = BatteryService.ACTION_STOP_MAX_ALARM_FROM_TILE
-                    }
-                )
-            } catch (_: Exception) {}
         }
     }
 

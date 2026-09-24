@@ -12,10 +12,13 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -57,6 +60,11 @@ class BatteryService : Service() {
     private var lowTarget    = 20
     private var lowSoundType = "ringtone"
     private var lowTtsText   = "Low battery"
+    private var settingsReady = false
+    private var stopping = false
+    private var latestBattery: Pair<Int, Boolean>? = null
+    private var settingsJob: Job? = null
+    private var alarmJob: Job? = null
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -66,13 +74,14 @@ class BatteryService : Service() {
             val scale  = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
 
-            if (level == -1 || scale == -1) return
+            if (level < 0 || scale <= 0) return
 
             val pct        = (level * 100) / scale
             val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                              status == BatteryManager.BATTERY_STATUS_FULL
 
-            checkBatteryLevel(pct, isCharging)
+            latestBattery = pct to isCharging
+            if (settingsReady && !stopping) checkBatteryLevel(pct, isCharging)
         }
     }
 
@@ -82,94 +91,111 @@ class BatteryService : Service() {
         alarmPlayer        = AlarmPlayer(applicationContext)
         createNotificationChannels()
 
-        // Start collectors that keep the in-memory cache in sync with DataStore.
-        // Each one is a single suspended collect() — negligible CPU, and DataStore
-        // itself caches the file in memory after the first read.
-        serviceScope.launch { preferencesManager.alarmEnabledFlow.collect       { maxEnabled   = it } }
-        serviceScope.launch { preferencesManager.targetPercentageFlow.collect    { maxTarget    = it } }
-        serviceScope.launch { preferencesManager.maxSoundTypeFlow.collect        { maxSoundType = it } }
-        serviceScope.launch { preferencesManager.maxTtsTextFlow.collect          { maxTtsText   = it } }
-        serviceScope.launch { preferencesManager.lowAlarmEnabledFlow.collect     { lowEnabled   = it } }
-        serviceScope.launch { preferencesManager.lowTargetPercentageFlow.collect { lowTarget    = it } }
-        serviceScope.launch { preferencesManager.lowSoundTypeFlow.collect        { lowSoundType = it } }
-        serviceScope.launch { preferencesManager.lowTtsTextFlow.collect          { lowTtsText   = it } }
-
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Promote before any asynchronous DataStore work, including cold notification actions.
+        startForeground(SERVICE_NOTIF_ID, createServiceNotification("Monitoring battery level…"))
         when (intent?.action) {
 
             // User hit "Stop Monitoring" — disable both alarms and kill the service.
             ACTION_STOP_SERVICE -> {
+                stopping = true
+                stopAllAlarms()
                 serviceScope.launch {
-                    preferencesManager.setAlarmEnabled(false)
-                    preferencesManager.setLowAlarmEnabled(false)
+                    try {
+                        // One durable transaction BEFORE onDestroy can cancel serviceScope.
+                        preferencesManager.disableAllAlarms()
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e("VoltHaltMonitoring", "Unable to persist Stop Monitoring", e)
+                        stopping = false
+                        observeSettings()
+                    }
                 }
-                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.cancel(ALARM_NOTIF_ID)
-                alarmPlayer.stop()
-                broadcastAlarmStopped()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
                 return START_NOT_STICKY
             }
 
             // Quick tile toggled the max-battery alarm off.
             // If the low-battery alarm is still active we keep the service running.
             ACTION_STOP_MAX_ALARM_FROM_TILE -> {
-                if (isMaxAlarmPlaying) {
-                    isMaxAlarmPlaying = false
-                    if (!isLowAlarmPlaying) {
-                        alarmPlayer.stop()
-                        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                        nm.cancel(ALARM_NOTIF_ID)
-                    }
-                    broadcastAlarmStopped()
-                }
-                if (!lowEnabled) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                }
-                return START_NOT_STICKY
+                stopMaxAlarm()
             }
 
             // Silence the alarm but keep the service monitoring.
             ACTION_STOP_ALARM -> {
                 stopAllAlarms()
-                return START_NOT_STICKY
             }
         }
 
-        // Normal start — begin foreground monitoring.
-        startForeground(SERVICE_NOTIF_ID, createServiceNotification("Monitoring battery level…"))
+        observeSettings()
         return START_STICKY
     }
 
+    private fun observeSettings() {
+        if (settingsJob != null) return
+        settingsJob = serviceScope.launch {
+            try {
+                preferencesManager.monitoringSettingsFlow.collect { settings ->
+                    maxEnabled = settings.maxEnabled
+                    lowEnabled = settings.lowEnabled
+                    maxTarget = settings.maxTarget
+                    lowTarget = settings.lowTarget
+                    maxSoundType = settings.maxSoundType
+                    lowSoundType = settings.lowSoundType
+                    maxTtsText = settings.maxTtsText
+                    lowTtsText = settings.lowTtsText
+                    settingsReady = true
+                    if (!stopping) {
+                        if (!settings.enabled) {
+                            stopAllAlarms()
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        } else {
+                            latestBattery?.let { (level, charging) -> checkBatteryLevel(level, charging) }
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("VoltHaltMonitoring", "Unable to load monitoring settings", e)
+                stopAllAlarms()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        }
+    }
+
     // Evaluates the current battery state against stored thresholds.
-    // Only reads in-memory fields — no coroutines, no IO, no allocation on the hot path.
+    // Stop the previous alarm before starting another on a charging-state transition.
     private fun checkBatteryLevel(currentLevel: Int, isCharging: Boolean) {
-        if (maxEnabled && isCharging && currentLevel >= maxTarget) {
+        val shouldPlayMax = maxEnabled && isCharging && currentLevel >= maxTarget
+        val shouldPlayLow = lowEnabled && !isCharging && currentLevel <= lowTarget
+        if (!shouldPlayMax) stopMaxAlarm()
+        if (!shouldPlayLow) stopLowAlarm()
+        if (shouldPlayMax) {
             if (!isMaxAlarmPlaying) {
                 isMaxAlarmPlaying = true
-                serviceScope.launch(Dispatchers.IO) { startAlarm(ALARM_TYPE_MAX) }
+                alarmJob = serviceScope.launch { startAlarm(ALARM_TYPE_MAX) }
             }
-        } else if (isMaxAlarmPlaying) {
-            stopMaxAlarm()
         }
 
-        if (lowEnabled && !isCharging && currentLevel <= lowTarget) {
+        if (shouldPlayLow) {
             if (!isLowAlarmPlaying) {
                 isLowAlarmPlaying = true
-                serviceScope.launch(Dispatchers.IO) { startAlarm(ALARM_TYPE_LOW) }
+                alarmJob = serviceScope.launch { startAlarm(ALARM_TYPE_LOW) }
             }
-        } else if (isLowAlarmPlaying) {
-            stopLowAlarm()
         }
     }
 
     // Reads the remaining alarm preferences (volume, vibration, ringtone) from DataStore
-    // and hands off to AlarmPlayer. Runs on the IO dispatcher.
+    // and hands off to AlarmPlayer. DataStore suspends for IO; playback and stop
+    // stay on the main dispatcher so a late read cannot restart a stopped alarm.
     private suspend fun startAlarm(type: String) {
         if (type == ALARM_TYPE_MAX) {
             val vibration   = preferencesManager.vibrationEnabledFlow.first()
@@ -236,6 +262,7 @@ class BatteryService : Service() {
         if (!isMaxAlarmPlaying) return
         isMaxAlarmPlaying = false
         if (!isLowAlarmPlaying) {
+            alarmJob?.cancel()
             alarmPlayer.stop()
             cancelAlarmNotification()
         }
@@ -246,6 +273,7 @@ class BatteryService : Service() {
         if (!isLowAlarmPlaying) return
         isLowAlarmPlaying = false
         if (!isMaxAlarmPlaying) {
+            alarmJob?.cancel()
             alarmPlayer.stop()
             cancelAlarmNotification()
         }
@@ -253,6 +281,7 @@ class BatteryService : Service() {
     }
 
     fun stopAllAlarms() {
+        alarmJob?.cancel()
         isMaxAlarmPlaying = false
         isLowAlarmPlaying = false
         alarmPlayer.stop()
@@ -263,11 +292,10 @@ class BatteryService : Service() {
     private fun cancelAlarmNotification() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(ALARM_NOTIF_ID)
-        nm.notify(SERVICE_NOTIF_ID, createServiceNotification("Monitoring battery level…"))
     }
 
     private fun broadcastAlarmStopped() {
-        sendBroadcast(Intent(ACTION_ALARM_STOPPED))
+        sendBroadcast(Intent(ACTION_ALARM_STOPPED).setPackage(packageName))
     }
 
     private fun createServiceNotification(contentText: String): Notification {
@@ -319,8 +347,9 @@ class BatteryService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
-        alarmPlayer.stop()
         serviceScope.cancel()
+        stopAllAlarms()
+        stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

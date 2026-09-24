@@ -183,15 +183,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startBatteryService() {
         lifecycleScope.launch {
-            val enabled = preferencesManager.alarmEnabledFlow.first()
-            if (enabled) {
-                val intent = Intent(this@MainActivity, BatteryService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent)
-                } else {
-                    startService(intent)
-                }
-            }
+            MonitoringController.reconcile(this@MainActivity)
         }
     }
 }

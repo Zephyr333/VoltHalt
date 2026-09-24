@@ -11,8 +11,8 @@ android {
         applicationId = "com.im_atp.volthalt"
         minSdk        = 26
         targetSdk     = 34
-        versionCode   = 1
-        versionName   = "1.0"
+        versionCode   = 2
+        versionName   = "2.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -21,6 +21,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Opt-in separate install for device acceptance without replacing a signed release.
+            providers.gradleProperty("testApplicationIdSuffix").orNull?.let {
+                applicationIdSuffix = it
+                versionNameSuffix = "-boot-test"
+                resValue("string", "app_name", "VoltHalt Boot Test")
+            }
+        }
         release {
             isMinifyEnabled   = true
             isShrinkResources = true
@@ -42,6 +50,10 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
     composeOptions {
@@ -73,10 +85,17 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.12.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.04.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+tasks.withType<Test>().configureEach {
+    // Keep Robolectric's SDK artifacts beside the selected Gradle cache.
+    systemProperty("maven.repo.local", "${gradle.gradleUserHomeDir}/robolectric")
+    systemProperty("user.home", gradle.gradleUserHomeDir.absolutePath)
 }

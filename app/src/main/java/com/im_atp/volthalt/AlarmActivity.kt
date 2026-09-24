@@ -1,5 +1,8 @@
 package com.im_atp.volthalt
 
+import android.annotation.SuppressLint
+import androidx.core.content.ContextCompat
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -95,19 +98,18 @@ class AlarmActivity : ComponentActivity() {
             "VoltHalt::AlarmWakeLock"
         ).apply { acquire(WAKE_LOCK_TIMEOUT_MS) }
 
+        // Set the type BEFORE the sticky battery callback: a low alarm on an
+        // unplugged device must not be dismissed as if it were a max alarm.
+        val alarmType = intent?.getStringExtra(BatteryService.EXTRA_ALARM_TYPE)
+            ?: BatteryService.ALARM_TYPE_MAX
+        currentAlarmType = alarmType
+
         // ACTION_BATTERY_CHANGED is sticky, so registering immediately delivers
         // the current state without waiting for the next broadcast.
         registerReceiver(batteryStateReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
         val alarmFilter = IntentFilter(BatteryService.ACTION_ALARM_STOPPED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(alarmStoppedReceiver, alarmFilter, RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(alarmStoppedReceiver, alarmFilter)
-        }
-
-        val alarmType = intent?.getStringExtra(BatteryService.EXTRA_ALARM_TYPE)
-            ?: BatteryService.ALARM_TYPE_MAX
+        ContextCompat.registerReceiver(this, alarmStoppedReceiver, alarmFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         showAlarmUi(alarmType)
     }
@@ -146,6 +148,7 @@ class AlarmActivity : ComponentActivity() {
 
     // Prevent the back button from dismissing the alarm — the user must press Stop.
     @Deprecated("Deprecated in Java")
+    @SuppressLint("MissingSuperCall")
     override fun onBackPressed() { /* intentionally empty */ }
 
     override fun onDestroy() {

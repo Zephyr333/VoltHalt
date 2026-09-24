@@ -1,5 +1,7 @@
 package com.im_atp.volthalt.ui.screens
 
+import com.im_atp.volthalt.MonitoringController
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -349,13 +351,7 @@ fun MainScreen(
                 onToggle       = { newState ->
                     coroutineScope.launch {
                         preferencesManager.setAlarmEnabled(newState)
-                        if (newState) {
-                            val intent = Intent(context, BatteryService::class.java)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                                context.startForegroundService(intent)
-                            else
-                                context.startService(intent)
-                        }
+                        MonitoringController.reconcile(context)
                     }
                 },
                 onClick = onNavigateToSettings
@@ -371,13 +367,7 @@ fun MainScreen(
                 onToggle       = { newState ->
                     coroutineScope.launch {
                         preferencesManager.setLowAlarmEnabled(newState)
-                        if (newState) {
-                            val intent = Intent(context, BatteryService::class.java)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                                context.startForegroundService(intent)
-                            else
-                                context.startService(intent)
-                        }
+                        MonitoringController.reconcile(context)
                     }
                 },
                 onClick = onNavigateToSettings

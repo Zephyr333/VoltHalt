@@ -54,7 +54,7 @@ VoltHalt is packed with essential features to keep your battery healthy while gi
 |  **Interactive 5s Alarm Preview** | Test your saved ringtone, TTS speech message, volume, and vibration with a single tap before activating. |
 |  **Custom Volume & Vibration** | Independent volume sliders (0–100%) and vibration toggles for both max and low alarms. |
 |  **Material 3 Theme Support** | Switch effortlessly between **System Default**, **Light Theme**, and **Dark Theme**. |
-|  **Boot Persistence** | Automatically resumes battery monitoring after device reboots (`RECEIVE_BOOT_COMPLETED`). |
+|  **Boot Persistence** | After reboot and first unlock, restores monitoring if either Max or Low alarm is enabled, when Android/OEM background policy permits. Both off means no monitoring. |
 |  **Direct In-App APK Sharing** | Share the app APK file directly with friends via `FileProvider` (`content://` URI) without external links. |
 |  **Onboarding Setup Wizard** | Guided setup for battery optimization exemptions, notification permissions, and full-screen intent access. |
 
@@ -64,8 +64,8 @@ VoltHalt is packed with essential features to keep your battery healthy while gi
 
 VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access without needing to launch the app UI:
 
--  **One-Tap Toggle**: Swipe down your Android notification shade and tap the **VoltHalt** tile to instantly turn battery monitoring on or off.
--  **Real-Time Sync**: Tile state updates automatically to reflect whether active background monitoring is running (`"Alarm On"` / `"Alarm Off"`).
+-  **One-Tap Toggle**: Tap the **VoltHalt** tile to toggle the Max alarm. The Low alarm is independent; it keeps monitoring enabled when Max is off.
+-  **Real-Time Sync**: Tile state reflects whether either alarm is enabled (`"Alarm On"` / `"Alarm Off"`); it is not proof that the OS has allowed the service to run.
 -  **Long-Press Shortcut**: Long-pressing the VoltHalt Quick Settings tile directly opens the app settings screen.
 -  **How to Add**:
   1. Swipe down twice from the top of your screen to expand Quick Settings.
@@ -73,6 +73,35 @@ VoltHalt includes a native **Android Quick Settings (QS) Tile** for fast access 
   3. Scroll down to find **VoltHalt**, drag it into your active tiles, and tap Done.
 
 ---
+
+## Boot recovery and its limits
+
+`BootReceiver` is registered for `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`.
+It holds the broadcast with `goAsync()`, reads the existing DataStore settings,
+and starts `BatteryService` only when `maxEnabled || lowEnabled`. The service
+immediately enters the foreground, loads a consistent settings snapshot, and
+evaluates the latest sticky battery state. A sticky service recreation also
+reloads settings; disabling both alarms removes the monitor and alarm notification.
+"Stop Monitoring" saves both switches off in one transaction before stopping.
+
+- Open the app once after installation and enable at least one alarm. Allow
+  notifications to see the persistent monitor notification.
+- Settings use credential-protected storage. Recovery happens after the first
+  unlock following reboot, without opening VoltHalt. Monitoring before that
+  unlock (Direct Boot) is not implemented.
+- Allow OEM autostart/background operation (including Xiaomi/HyperOS) and remove
+  restrictive battery settings. Android/OEM restrictions or force-stop can prevent
+  delivery of boot broadcasts. VoltHalt cannot override these system decisions or
+  switch OEM autostart permission on by itself.
+- For diagnostics, Logcat tags `VoltHaltBoot` and `VoltHaltMonitoring` distinguish
+  broadcast receipt, a service start request, and a rejected start/read failure.
+  A logged request alone is not proof of a running service.
+
+See Android's [foreground service start exemptions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start),
+[background restrictions](https://developer.android.com/topic/performance/background-optimization),
+and [Direct Boot storage rules](https://developer.android.com/privacy-and-security/direct-boot).
+Device acceptance steps and the scope of local verification are in
+[the boot recovery check](docs/boot-recovery-check.md).
 
 ##  App Showcase
 

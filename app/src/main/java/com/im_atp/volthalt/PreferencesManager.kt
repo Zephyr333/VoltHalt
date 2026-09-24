@@ -10,8 +10,22 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+
+data class MonitoringSettings(
+    val maxEnabled: Boolean = false,
+    val lowEnabled: Boolean = false,
+    val maxTarget: Int = 80,
+    val lowTarget: Int = 20,
+    val maxSoundType: String = "ringtone",
+    val lowSoundType: String = "ringtone",
+    val maxTtsText: String = "Battery charged",
+    val lowTtsText: String = "Low battery"
+) {
+    val enabled: Boolean get() = maxEnabled || lowEnabled
+}
 
 class PreferencesManager(private val context: Context) {
 
@@ -41,6 +55,27 @@ class PreferencesManager(private val context: Context) {
         val MAX_TTS_TEXT                 = stringPreferencesKey("max_tts_text")
         val LOW_SOUND_TYPE               = stringPreferencesKey("low_sound_type")
         val LOW_TTS_TEXT                 = stringPreferencesKey("low_tts_text")
+    }
+
+    // One DataStore emission: never combine flags/thresholds from different revisions.
+    val monitoringSettingsFlow: Flow<MonitoringSettings> = context.dataStore.data.map {
+        MonitoringSettings(
+            maxEnabled = it[ALARM_ENABLED] ?: false,
+            lowEnabled = it[LOW_ALARM_ENABLED] ?: false,
+            maxTarget = it[TARGET_PERCENTAGE] ?: 80,
+            lowTarget = it[LOW_TARGET_PERCENTAGE] ?: 20,
+            maxSoundType = it[MAX_SOUND_TYPE] ?: "ringtone",
+            lowSoundType = it[LOW_SOUND_TYPE] ?: "ringtone",
+            maxTtsText = it[MAX_TTS_TEXT] ?: "Battery charged",
+            lowTtsText = it[LOW_TTS_TEXT] ?: "Low battery"
+        )
+    }.distinctUntilChanged()
+
+    suspend fun disableAllAlarms() {
+        context.dataStore.edit {
+            it[ALARM_ENABLED] = false
+            it[LOW_ALARM_ENABLED] = false
+        }
     }
 
     // Max battery alarm flows
