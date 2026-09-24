@@ -127,4 +127,95 @@ class MonitoringLifecycleTest {
         assertNull(shadowApp.nextStartedService)
         runBlocking { prefs.disableAllAlarms() }
     }
+
+    @Test fun alarmTriggerLocksPreventDuplicateAlertsAndResetOnConditionClear() {
+        val app = RuntimeEnvironment.getApplication()
+        val prefs = PreferencesManager(app)
+        val nm = app.getSystemService(NotificationManager::class.java)
+        val notifications = shadowOf(nm)
+
+        runBlocking {
+            prefs.setAlarmEnabled(true)
+            prefs.setLowAlarmEnabled(true)
+            prefs.setTargetPercentage(80)
+            prefs.setLowTargetPercentage(33)
+            prefs.setAlarmVolume(0)
+            prefs.setLowAlarmVolume(0)
+            prefs.setVibrationEnabled(false)
+            prefs.setLowVibrationEnabled(false)
+        }
+
+        val controller = Robolectric.buildService(BatteryService::class.java).create()
+        val service = controller.get()
+        service.onStartCommand(null, 0, 1)
+
+        fun sendBattery(level: Int, charging: Boolean) {
+            val status = if (charging) BatteryManager.BATTERY_STATUS_CHARGING else BatteryManager.BATTERY_STATUS_DISCHARGING
+            @Suppress("DEPRECATION")
+            app.sendStickyBroadcast(Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+                putExtra(BatteryManager.EXTRA_LEVEL, level)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+                putExtra(BatteryManager.EXTRA_STATUS, status)
+            })
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+
+        // Wait until settings are loaded with an initial safe state (50% discharging)
+        sendBattery(50, false)
+        awaitCondition("Initial settings not loaded") { notifications.getNotification(1) != null }
+        assertNull(notifications.getNotification(2))
+
+        // 1. Drop into low condition: 33% discharging -> Triggers alarm
+        sendBattery(33, false)
+        awaitCondition("Low alarm failed to trigger on 33%") { notifications.getNotification(2) != null }
+
+        // 2. Subsequent broadcasts within 33% (voltage/temp fluctuations) do not re-trigger
+        nm.cancel(2)
+        sendBattery(33, false)
+        sendBattery(33, false)
+        sendBattery(32, false)
+        assertNull("Subsequent discharge broadcast must not re-trigger locked alarm", notifications.getNotification(2))
+
+        // 3. Silence / Stop Alarm keeps lock intact
+        service.onStartCommand(Intent(this@MonitoringLifecycleTest.javaClass.name).apply {
+            action = BatteryService.ACTION_STOP_ALARM
+        }, 0, 2)
+        sendBattery(32, false)
+        sendBattery(31, false)
+        assertNull("Broadcast after STOP_ALARM must not re-trigger without charging", notifications.getNotification(2))
+
+        // 4. Plugging in resets the low trigger lock
+        sendBattery(31, true)
+        sendBattery(35, true)
+
+        // 5. Unplug and drop into low condition again -> Must trigger anew
+        sendBattery(35, false)
+        assertNull(notifications.getNotification(2))
+        sendBattery(33, false)
+        awaitCondition("Low alarm failed to re-trigger after charging reset") { notifications.getNotification(2) != null }
+
+        // 6. Max alarm symmetry: charge to 80% -> Triggers Max alarm
+        nm.cancel(2)
+        sendBattery(80, true)
+        awaitCondition("Max alarm failed to trigger on 80%") { notifications.getNotification(2) != null }
+
+        // Subsequent charge broadcasts (81%, 82%) must not re-trigger
+        service.onStartCommand(Intent(this@MonitoringLifecycleTest.javaClass.name).apply {
+            action = BatteryService.ACTION_STOP_ALARM
+        }, 0, 3)
+        assertNull(notifications.getNotification(2))
+        sendBattery(81, true)
+        sendBattery(82, true)
+        assertNull("Max alarm re-triggered while continuing to charge", notifications.getNotification(2))
+
+        // Unplugging resets max lock
+        sendBattery(82, false)
+        sendBattery(80, false)
+        // Re-plug at 80% -> Triggers anew
+        sendBattery(80, true)
+        awaitCondition("Max alarm failed to re-trigger after unplugging reset") { notifications.getNotification(2) != null }
+
+        controller.destroy()
+        runBlocking { prefs.disableAllAlarms() }
+    }
 }

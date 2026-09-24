@@ -48,6 +48,8 @@ class BatteryService : Service() {
     // onStartCommand both run there), so no synchronisation is needed.
     private var isMaxAlarmPlaying = false
     private var isLowAlarmPlaying = false
+    private var isMaxAlarmTriggered = false
+    private var isLowAlarmTriggered = false
 
     // In-memory preference cache — kept in sync by lightweight collectors below.
     // Using cached values in the battery receiver avoids DataStore reads on
@@ -128,7 +130,7 @@ class BatteryService : Service() {
 
             // Silence the alarm but keep the service monitoring.
             ACTION_STOP_ALARM -> {
-                stopAllAlarms()
+                silenceAlarms()
             }
         }
 
@@ -172,24 +174,36 @@ class BatteryService : Service() {
     }
 
     // Evaluates the current battery state against stored thresholds.
-    // Stop the previous alarm before starting another on a charging-state transition.
+    // Uses edge-triggered semantics with an acknowledged state lock:
+    // alerts fire once upon entering the condition and do not re-fire on
+    // subsequent broadcasts (e.g. voltage/temperature changes) until reset.
     private fun checkBatteryLevel(currentLevel: Int, isCharging: Boolean) {
-        val shouldPlayMax = maxEnabled && isCharging && currentLevel >= maxTarget
-        val shouldPlayLow = lowEnabled && !isCharging && currentLevel <= lowTarget
-        if (!shouldPlayMax) stopMaxAlarm()
-        if (!shouldPlayLow) stopLowAlarm()
-        if (shouldPlayMax) {
-            if (!isMaxAlarmPlaying) {
-                isMaxAlarmPlaying = true
-                alarmJob = serviceScope.launch { startAlarm(ALARM_TYPE_MAX) }
-            }
+        val maxConditionMet = maxEnabled && isCharging && currentLevel >= maxTarget
+        val lowConditionMet = lowEnabled && !isCharging && currentLevel <= lowTarget
+
+        // Reset the trigger lock once the condition clears:
+        // For Max: unplugging or dropping below target allows a future charge to alert.
+        if (!maxConditionMet) {
+            stopMaxAlarm()
+            isMaxAlarmTriggered = false
+        }
+        // For Low: plugging in or rising above target allows a future discharge to alert.
+        if (!lowConditionMet) {
+            stopLowAlarm()
+            isLowAlarmTriggered = false
         }
 
-        if (shouldPlayLow) {
-            if (!isLowAlarmPlaying) {
-                isLowAlarmPlaying = true
-                alarmJob = serviceScope.launch { startAlarm(ALARM_TYPE_LOW) }
-            }
+        // Fire only on edge transition into the alarm condition.
+        if (maxConditionMet && !isMaxAlarmTriggered) {
+            isMaxAlarmTriggered = true
+            isMaxAlarmPlaying = true
+            alarmJob = serviceScope.launch { startAlarm(ALARM_TYPE_MAX) }
+        }
+
+        if (lowConditionMet && !isLowAlarmTriggered) {
+            isLowAlarmTriggered = true
+            isLowAlarmPlaying = true
+            alarmJob = serviceScope.launch { startAlarm(ALARM_TYPE_LOW) }
         }
     }
 
@@ -280,13 +294,22 @@ class BatteryService : Service() {
         broadcastAlarmStopped()
     }
 
-    fun stopAllAlarms() {
+    // Silences current sound and notifications while retaining trigger locks.
+    // Subsequent broadcasts within the same condition will not re-alert.
+    private fun silenceAlarms() {
         alarmJob?.cancel()
         isMaxAlarmPlaying = false
         isLowAlarmPlaying = false
         alarmPlayer.stop()
         cancelAlarmNotification()
         broadcastAlarmStopped()
+    }
+
+    // Fully stops all alarms and resets trigger locks (e.g. when monitoring stops or both alarms disabled).
+    fun stopAllAlarms() {
+        silenceAlarms()
+        isMaxAlarmTriggered = false
+        isLowAlarmTriggered = false
     }
 
     private fun cancelAlarmNotification() {
