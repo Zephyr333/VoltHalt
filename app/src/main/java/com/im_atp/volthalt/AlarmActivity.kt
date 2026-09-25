@@ -3,6 +3,7 @@ package com.im_atp.volthalt
 import android.annotation.SuppressLint
 import androidx.core.content.ContextCompat
 
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -76,6 +77,25 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // If the user is actively using the device (screen is interactive and unlocked),
+        // we must NEVER interrupt or hijack the foreground application (e.g. browser).
+        // The user receives a floating Heads-Up notification with a "Stop Alarm" action.
+        val pmCheck = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val kmCheck = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val isInteractive = pmCheck?.isInteractive ?: false
+        val isKeyguardLocked = kmCheck?.isKeyguardLocked ?: false
+        if (isInteractive && !isKeyguardLocked) {
+            finish()
+            if (Build.VERSION.SDK_INT >= 34) {
+                overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
+                overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(0, 0)
+            }
+            return
+        }
 
         // Make sure the screen turns on and the alarm shows over the lock screen.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {

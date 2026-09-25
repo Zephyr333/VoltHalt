@@ -283,6 +283,11 @@ class BatteryService : Service() {
             putExtra(EXTRA_ALARM_TYPE, type)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val fullScreenPending = PendingIntent.getActivity(
             this, 3, alarmIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -303,7 +308,8 @@ class BatteryService : Service() {
             .setContentTitle(title)
             .setContentText(body)
             .setSmallIcon(R.drawable.ic_app_icon)
-            .setContentIntent(fullScreenPending)
+            .setContentIntent(contentIntent)
+            .setFullScreenIntent(fullScreenPending, true)
             .addAction(0, "Stop Alarm", stopPending)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

@@ -284,7 +284,7 @@ class MonitoringLifecycleTest {
             notifications.getNotification(2) != null
         }
         val notif = notifications.getNotification(2)
-        assertNull("Notification must NEVER have fullScreenIntent (no screen hijacking)", notif.fullScreenIntent)
+        assertNotNull("Notification must have fullScreenIntent to bypass DND and pop heads-up banner", notif.fullScreenIntent)
 
         // 6. While alerting, user turns screen off (presses power button) -> Silences & acknowledges immediately!
         shadowOf(pm).setIsInteractive(false)
@@ -308,7 +308,7 @@ class MonitoringLifecycleTest {
         awaitCondition("Alarm must re-trigger after charging reset") {
             notifications.getNotification(2) != null
         }
-        assertNull("Re-triggered notification must still have no fullScreenIntent", notifications.getNotification(2).fullScreenIntent)
+        assertNotNull("Re-triggered notification must have fullScreenIntent for DND bypass", notifications.getNotification(2).fullScreenIntent)
 
         // Explicit "Stop Alarm" in notification also acknowledges and clears
         service.onStartCommand(Intent(this@MonitoringLifecycleTest.javaClass.name).apply {
@@ -318,5 +318,18 @@ class MonitoringLifecycleTest {
 
         controller.destroy()
         runBlocking { prefs.disableAllAlarms() }
+    }
+
+    @Test fun alarmActivityDismissesImmediatelyWhenUserInteractiveAndUnlocked() {
+        val app = RuntimeEnvironment.getApplication()
+        val km = app.getSystemService(KeyguardManager::class.java)
+        val pm = app.getSystemService(PowerManager::class.java)
+
+        shadowOf(pm).setIsInteractive(true)
+        shadowOf(km).setKeyguardLocked(false)
+
+        val controller = Robolectric.buildActivity(AlarmActivity::class.java).setup()
+        val activity = controller.get()
+        assertTrue("AlarmActivity must finish immediately if device is interactive and unlocked", activity.isFinishing)
     }
 }
