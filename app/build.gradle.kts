@@ -11,8 +11,8 @@ android {
         applicationId = "com.im_atp.volthalt"
         minSdk        = 26
         targetSdk     = 34
-        versionCode   = 4
-        versionName   = "2.0.3"
+        versionCode   = 5
+        versionName   = "2.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

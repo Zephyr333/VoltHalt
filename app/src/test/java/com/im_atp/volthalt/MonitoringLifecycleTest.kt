@@ -283,33 +283,38 @@ class MonitoringLifecycleTest {
         awaitCondition("Alarm must trigger upon unlock when low condition is met") {
             notifications.getNotification(2) != null
         }
+        val notif = notifications.getNotification(2)
+        assertNull("Notification must NEVER have fullScreenIntent (no screen hijacking)", notif.fullScreenIntent)
 
-        // 6. While alerting, screen turns off -> Alarm is suspended (notification removed)
+        // 6. While alerting, user turns screen off (presses power button) -> Silences & acknowledges immediately!
         shadowOf(pm).setIsInteractive(false)
         app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
         shadowOf(Looper.getMainLooper()).idle()
-        assertNull("Alarm must be suspended when screen turns off", notifications.getNotification(2))
+        assertNull("Alarm must be silenced and notification removed when screen turns off", notifications.getNotification(2))
 
-        // 7. Screen turns back on and unlocked -> Alarm resumes!
+        // 7. Screen turns back on and unlocked -> MUST NOT re-trigger! Dead loop is broken!
         shadowOf(pm).setIsInteractive(true)
         app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
-        awaitCondition("Alarm must resume when screen is unlocked again") {
+        app.sendBroadcast(Intent(Intent.ACTION_USER_PRESENT))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull("Alarm must NOT re-trigger on subsequent unlock after power button silence", notifications.getNotification(2))
+
+        // 8. Condition clearing: plugging in resets the lock
+        sendBattery(32, true)
+        sendBattery(40, true)
+        // Unplug and drop into low condition again -> Triggers anew
+        sendBattery(40, false)
+        sendBattery(33, false)
+        awaitCondition("Alarm must re-trigger after charging reset") {
             notifications.getNotification(2) != null
         }
+        assertNull("Re-triggered notification must still have no fullScreenIntent", notifications.getNotification(2).fullScreenIntent)
 
-        // 8. User explicitly clicks "Stop Alarm" -> Acknowledged
+        // Explicit "Stop Alarm" in notification also acknowledges and clears
         service.onStartCommand(Intent(this@MonitoringLifecycleTest.javaClass.name).apply {
             action = BatteryService.ACTION_STOP_ALARM
         }, 0, 2)
         assertNull("Notification must be cleared on Stop Alarm", notifications.getNotification(2))
-
-        // Subsequent lock and unlock does NOT re-trigger
-        shadowOf(pm).setIsInteractive(false)
-        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
-        shadowOf(pm).setIsInteractive(true)
-        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
-        shadowOf(Looper.getMainLooper()).idle()
-        assertNull("Alarm must NOT re-trigger after explicit Stop Alarm acknowledgement", notifications.getNotification(2))
 
         controller.destroy()
         runBlocking { prefs.disableAllAlarms() }

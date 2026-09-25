@@ -101,8 +101,11 @@ class BatteryService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
+                    // Locking/turning off the screen acts as acknowledgement silence:
+                    // stops audio and notification immediately, while retaining trigger locks
+                    // so the alarm does not repeat upon next unlock.
                     if (isMaxAlarmPlaying || isLowAlarmPlaying) {
-                        suspendAlarms()
+                        silenceAlarms()
                     }
                 }
                 Intent.ACTION_SCREEN_ON,
@@ -301,7 +304,6 @@ class BatteryService : Service() {
             .setContentText(body)
             .setSmallIcon(R.drawable.ic_app_icon)
             .setContentIntent(fullScreenPending)
-            .setFullScreenIntent(fullScreenPending, true)
             .addAction(0, "Stop Alarm", stopPending)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -342,24 +344,6 @@ class BatteryService : Service() {
         alarmJob?.cancel()
         isMaxAlarmPlaying = false
         isLowAlarmPlaying = false
-        alarmPlayer.stop()
-        cancelAlarmNotification()
-        broadcastAlarmStopped()
-    }
-
-    // Suspends currently playing alarms due to screen locking or turning off.
-    // Keeps the device completely silent while locked, but resets trigger locks
-    // so the alert can resume upon unlocking if the condition is still met.
-    private fun suspendAlarms() {
-        alarmJob?.cancel()
-        if (isMaxAlarmPlaying) {
-            isMaxAlarmPlaying = false
-            isMaxAlarmTriggered = false
-        }
-        if (isLowAlarmPlaying) {
-            isLowAlarmPlaying = false
-            isLowAlarmTriggered = false
-        }
         alarmPlayer.stop()
         cancelAlarmNotification()
         broadcastAlarmStopped()
