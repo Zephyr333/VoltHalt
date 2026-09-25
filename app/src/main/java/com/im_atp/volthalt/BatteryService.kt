@@ -1,5 +1,6 @@
 package com.im_atp.volthalt
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,6 +13,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
@@ -87,6 +89,32 @@ class BatteryService : Service() {
         }
     }
 
+    private fun isScreenUnlocked(): Boolean {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val isInteractive = pm?.isInteractive ?: false
+        val isKeyguardLocked = km?.isKeyguardLocked ?: false
+        return isInteractive && !isKeyguardLocked
+    }
+
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    if (isMaxAlarmPlaying || isLowAlarmPlaying) {
+                        suspendAlarms()
+                    }
+                }
+                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_USER_PRESENT -> {
+                    if (settingsReady && !stopping && isScreenUnlocked()) {
+                        latestBattery?.let { (level, charging) -> checkBatteryLevel(level, charging) }
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         preferencesManager = PreferencesManager(applicationContext)
@@ -94,6 +122,13 @@ class BatteryService : Service() {
         createNotificationChannels()
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+
+        val screenFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        registerReceiver(screenStateReceiver, screenFilter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -191,6 +226,13 @@ class BatteryService : Service() {
         if (!lowConditionMet) {
             stopLowAlarm()
             isLowAlarmTriggered = false
+        }
+
+        // Do not alert while the screen is off or locked.
+        // Trigger locks are NOT consumed while locked, allowing the alarm to fire
+        // immediately upon the user unlocking the screen.
+        if (!isScreenUnlocked()) {
+            return
         }
 
         // Fire only on edge transition into the alarm condition.
@@ -305,6 +347,24 @@ class BatteryService : Service() {
         broadcastAlarmStopped()
     }
 
+    // Suspends currently playing alarms due to screen locking or turning off.
+    // Keeps the device completely silent while locked, but resets trigger locks
+    // so the alert can resume upon unlocking if the condition is still met.
+    private fun suspendAlarms() {
+        alarmJob?.cancel()
+        if (isMaxAlarmPlaying) {
+            isMaxAlarmPlaying = false
+            isMaxAlarmTriggered = false
+        }
+        if (isLowAlarmPlaying) {
+            isLowAlarmPlaying = false
+            isLowAlarmTriggered = false
+        }
+        alarmPlayer.stop()
+        cancelAlarmNotification()
+        broadcastAlarmStopped()
+    }
+
     // Fully stops all alarms and resets trigger locks (e.g. when monitoring stops or both alarms disabled).
     fun stopAllAlarms() {
         silenceAlarms()
@@ -370,6 +430,7 @@ class BatteryService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(screenStateReceiver) } catch (_: Exception) {}
         serviceScope.cancel()
         stopAllAlarms()
         stopForeground(STOP_FOREGROUND_REMOVE)

@@ -1,10 +1,12 @@
 package com.im_atp.volthalt
 
+import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.BatteryManager
 import android.os.Looper
+import android.os.PowerManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -214,6 +216,100 @@ class MonitoringLifecycleTest {
         // Re-plug at 80% -> Triggers anew
         sendBattery(80, true)
         awaitCondition("Max alarm failed to re-trigger after unplugging reset") { notifications.getNotification(2) != null }
+
+        controller.destroy()
+        runBlocking { prefs.disableAllAlarms() }
+    }
+
+    @Test fun alarmSuppressedWhileScreenLockedAndFiresOnUnlock() {
+        val app = RuntimeEnvironment.getApplication()
+        val prefs = PreferencesManager(app)
+        val nm = app.getSystemService(NotificationManager::class.java)
+        val notifications = shadowOf(nm)
+        val km = app.getSystemService(KeyguardManager::class.java)
+        val pm = app.getSystemService(PowerManager::class.java)
+
+        runBlocking {
+            prefs.setAlarmEnabled(false)
+            prefs.setLowAlarmEnabled(true)
+            prefs.setLowTargetPercentage(33)
+            prefs.setLowAlarmVolume(0)
+            prefs.setLowVibrationEnabled(false)
+        }
+
+        // 1. Simulate screen locked & interactive
+        shadowOf(km).setKeyguardLocked(true)
+        shadowOf(pm).setIsInteractive(true)
+
+        val controller = Robolectric.buildService(BatteryService::class.java).create()
+        val service = controller.get()
+        service.onStartCommand(null, 0, 1)
+
+        fun sendBattery(level: Int, charging: Boolean) {
+            val status = if (charging) BatteryManager.BATTERY_STATUS_CHARGING else BatteryManager.BATTERY_STATUS_DISCHARGING
+            @Suppress("DEPRECATION")
+            app.sendStickyBroadcast(Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+                putExtra(BatteryManager.EXTRA_LEVEL, level)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+                putExtra(BatteryManager.EXTRA_STATUS, status)
+            })
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+
+        sendBattery(50, false)
+        awaitCondition("Initial settings not loaded") { notifications.getNotification(1) != null }
+
+        // 2. Drop into low condition while screen locked: 33% discharging -> MUST NOT trigger alarm!
+        sendBattery(33, false)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull("Alarm must NOT trigger while screen is locked", notifications.getNotification(2))
+
+        // 3. Screen off (non-interactive): still must not trigger
+        shadowOf(pm).setIsInteractive(false)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        sendBattery(32, false)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull("Alarm must NOT trigger while screen is off", notifications.getNotification(2))
+
+        // 4. Screen turned on but still locked with keyguard: still must not trigger
+        shadowOf(pm).setIsInteractive(true)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull("Alarm must NOT trigger while keyguard is locked", notifications.getNotification(2))
+
+        // 5. User unlocks device (ACTION_USER_PRESENT & keyguard unlocked) -> ALERTS IMMEDIATELY!
+        shadowOf(km).setKeyguardLocked(false)
+        app.sendBroadcast(Intent(Intent.ACTION_USER_PRESENT))
+        awaitCondition("Alarm must trigger upon unlock when low condition is met") {
+            notifications.getNotification(2) != null
+        }
+
+        // 6. While alerting, screen turns off -> Alarm is suspended (notification removed)
+        shadowOf(pm).setIsInteractive(false)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull("Alarm must be suspended when screen turns off", notifications.getNotification(2))
+
+        // 7. Screen turns back on and unlocked -> Alarm resumes!
+        shadowOf(pm).setIsInteractive(true)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
+        awaitCondition("Alarm must resume when screen is unlocked again") {
+            notifications.getNotification(2) != null
+        }
+
+        // 8. User explicitly clicks "Stop Alarm" -> Acknowledged
+        service.onStartCommand(Intent(this@MonitoringLifecycleTest.javaClass.name).apply {
+            action = BatteryService.ACTION_STOP_ALARM
+        }, 0, 2)
+        assertNull("Notification must be cleared on Stop Alarm", notifications.getNotification(2))
+
+        // Subsequent lock and unlock does NOT re-trigger
+        shadowOf(pm).setIsInteractive(false)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        shadowOf(pm).setIsInteractive(true)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull("Alarm must NOT re-trigger after explicit Stop Alarm acknowledgement", notifications.getNotification(2))
 
         controller.destroy()
         runBlocking { prefs.disableAllAlarms() }
