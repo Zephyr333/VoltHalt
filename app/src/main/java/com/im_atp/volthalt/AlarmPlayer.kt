@@ -49,7 +49,15 @@ class AlarmPlayer(private val context: Context) {
         }
     }
 
+    fun playSilent(enableVibration: Boolean) {
+        if (enableVibration) startVibration()
+    }
+
     fun play(ringtoneUriString: String?, enableVibration: Boolean, volumePercent: Int = 80) {
+        if (volumePercent <= 0) {
+            playSilent(enableVibration)
+            return
+        }
         if (mediaPlayer?.isPlaying == true) return
 
         val uri = if (ringtoneUriString.isNullOrEmpty()) {
@@ -86,6 +94,10 @@ class AlarmPlayer(private val context: Context) {
     // Plays a TTS message on repeat with a short gap between each utterance.
     // The loop runs until stop() is called.
     fun playTts(text: String, enableVibration: Boolean, volumePercent: Int = 80) {
+        if (volumePercent <= 0) {
+            playSilent(enableVibration)
+            return
+        }
         if (ttsActive) return
         ttsActive = true
 

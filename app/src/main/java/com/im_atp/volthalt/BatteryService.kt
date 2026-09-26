@@ -259,20 +259,24 @@ class BatteryService : Service() {
         if (type == ALARM_TYPE_MAX) {
             val vibration   = preferencesManager.vibrationEnabledFlow.first()
             val volume      = preferencesManager.alarmVolumeFlow.first()
-            if (maxSoundType == "tts") {
-                alarmPlayer.playTts(maxTtsText, vibration, volume)
-            } else {
-                val ringtoneUri = preferencesManager.ringtoneUriFlow.first()
-                alarmPlayer.play(ringtoneUri, vibration, volume)
+            when (maxSoundType) {
+                "silent" -> alarmPlayer.playSilent(vibration)
+                "tts"    -> alarmPlayer.playTts(maxTtsText, vibration, volume)
+                else     -> {
+                    val ringtoneUri = preferencesManager.ringtoneUriFlow.first()
+                    alarmPlayer.play(ringtoneUri, vibration, volume)
+                }
             }
         } else {
             val vibration   = preferencesManager.lowVibrationEnabledFlow.first()
             val volume      = preferencesManager.lowAlarmVolumeFlow.first()
-            if (lowSoundType == "tts") {
-                alarmPlayer.playTts(lowTtsText, vibration, volume)
-            } else {
-                val ringtoneUri = preferencesManager.lowRingtoneUriFlow.first()
-                alarmPlayer.play(ringtoneUri, vibration, volume)
+            when (lowSoundType) {
+                "silent" -> alarmPlayer.playSilent(vibration)
+                "tts"    -> alarmPlayer.playTts(lowTtsText, vibration, volume)
+                else     -> {
+                    val ringtoneUri = preferencesManager.lowRingtoneUriFlow.first()
+                    alarmPlayer.play(ringtoneUri, vibration, volume)
+                }
             }
         }
         showAlarmNotification(type)

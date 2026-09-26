@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -162,11 +163,15 @@ fun SettingsScreen(
                 onPickRingtone     = { maxRingtoneLauncher.launch(buildRingtoneIntent(maxRingtone)) },
                 onTtsTextChange    = { coroutineScope.launch { preferencesManager.setMaxTtsText(it) } }
             )
-            SettingsDivider()
-            VolumeSliderRow(
-                value   = maxVolume,
-                onValue = { coroutineScope.launch { preferencesManager.setAlarmVolume(it) } }
-            )
+            AnimatedVisibility(visible = maxSoundType != "silent") {
+                Column {
+                    SettingsDivider()
+                    VolumeSliderRow(
+                        value   = maxVolume,
+                        onValue = { coroutineScope.launch { preferencesManager.setAlarmVolume(it) } }
+                    )
+                }
+            }
             SettingsDivider()
             VibrationRow(
                 checked   = maxVibration,
@@ -230,12 +235,16 @@ fun SettingsScreen(
                 onPickRingtone     = { if (lowEnabled) lowRingtoneLauncher.launch(buildRingtoneIntent(lowRingtone)) },
                 onTtsTextChange    = { if (lowEnabled) coroutineScope.launch { preferencesManager.setLowTtsText(it) } }
             )
-            SettingsDivider()
-            VolumeSliderRow(
-                value   = lowVolume,
-                enabled = lowEnabled,
-                onValue = { coroutineScope.launch { preferencesManager.setLowAlarmVolume(it) } }
-            )
+            AnimatedVisibility(visible = lowEnabled && lowSoundType != "silent") {
+                Column {
+                    SettingsDivider()
+                    VolumeSliderRow(
+                        value   = lowVolume,
+                        enabled = lowEnabled,
+                        onValue = { coroutineScope.launch { preferencesManager.setLowAlarmVolume(it) } }
+                    )
+                }
+            }
             SettingsDivider()
             VibrationRow(
                 checked   = lowVibration,
@@ -592,7 +601,7 @@ private fun AlarmSoundBlock(
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            "Choose between a ringtone or a spoken message",
+            "Ringtone, spoken speech, or silent notification",
             fontSize = 12.sp,
             color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
         )
@@ -602,7 +611,7 @@ private fun AlarmSoundBlock(
             SegmentedButton(
                 selected = soundType == "ringtone",
                 onClick  = { if (enabled) onSoundTypeChange("ringtone") },
-                shape    = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                shape    = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                 icon = {
                     SegmentedButtonDefaults.Icon(active = soundType == "ringtone") {
                         Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(SegmentedButtonDefaults.IconSize))
@@ -613,14 +622,26 @@ private fun AlarmSoundBlock(
             SegmentedButton(
                 selected = soundType == "tts",
                 onClick  = { if (enabled) onSoundTypeChange("tts") },
-                shape    = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                shape    = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                 icon = {
                     SegmentedButtonDefaults.Icon(active = soundType == "tts") {
                         @Suppress("DEPRECATION")
                         Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(SegmentedButtonDefaults.IconSize))
                     }
                 }
-            ) { Text("Text to Speech") }
+            ) { Text("Speech") }
+
+            SegmentedButton(
+                selected = soundType == "silent",
+                onClick  = { if (enabled) onSoundTypeChange("silent") },
+                shape    = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                icon = {
+                    SegmentedButtonDefaults.Icon(active = soundType == "silent") {
+                        @Suppress("DEPRECATION")
+                        Icon(Icons.Default.VolumeOff, contentDescription = null, modifier = Modifier.size(SegmentedButtonDefaults.IconSize))
+                    }
+                }
+            ) { Text("Silent") }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -634,6 +655,42 @@ private fun AlarmSoundBlock(
             label = "soundTypeContent"
         ) { type ->
             when (type) {
+                "silent" -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = accentColor.copy(alpha = 0.15f),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                @Suppress("DEPRECATION")
+                                Icon(
+                                    imageVector = Icons.Default.VolumeOff,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Silent Notification",
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+                            )
+                            Text(
+                                "No sound will be played. Only floating heads-up banner alerts you.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                            )
+                        }
+                    }
+                }
                 "tts" -> TtsTextRow(
                     ttsText      = ttsText,
                     accentColor  = accentColor,

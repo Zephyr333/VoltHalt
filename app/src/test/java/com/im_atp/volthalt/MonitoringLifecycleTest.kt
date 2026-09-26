@@ -332,4 +332,52 @@ class MonitoringLifecycleTest {
         val activity = controller.get()
         assertTrue("AlarmActivity must finish immediately if device is interactive and unlocked", activity.isFinishing)
     }
+
+    @Test fun silentAlarmModeTriggersNotificationWithoutAudio() {
+        val app = RuntimeEnvironment.getApplication()
+        val prefs = PreferencesManager(app)
+        val nm = app.getSystemService(NotificationManager::class.java)
+        val notifications = shadowOf(nm)
+        val km = app.getSystemService(KeyguardManager::class.java)
+        val pm = app.getSystemService(PowerManager::class.java)
+
+        runBlocking {
+            prefs.setAlarmEnabled(false)
+            prefs.setLowAlarmEnabled(true)
+            prefs.setLowTargetPercentage(20)
+            prefs.setLowSoundType("silent")
+            prefs.setLowVibrationEnabled(false)
+            prefs.setLowAlarmVolume(0)
+        }
+
+        shadowOf(km).setKeyguardLocked(false)
+        shadowOf(pm).setIsInteractive(true)
+
+        val controller = Robolectric.buildService(BatteryService::class.java).create()
+        val service = controller.get()
+        service.onStartCommand(null, 0, 1)
+
+        @Suppress("DEPRECATION")
+        app.sendStickyBroadcast(Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+            putExtra(BatteryManager.EXTRA_LEVEL, 20)
+            putExtra(BatteryManager.EXTRA_SCALE, 100)
+            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
+        })
+        shadowOf(Looper.getMainLooper()).idle()
+
+        awaitCondition("Notification must fire in silent mode") {
+            notifications.getNotification(2) != null
+        }
+        val notif = notifications.getNotification(2)
+        assertNotNull("Silent alarm must still carry fullScreenIntent for DND bypass", notif.fullScreenIntent)
+
+        // Stop Alarm clears notification cleanly
+        service.onStartCommand(Intent(this@MonitoringLifecycleTest.javaClass.name).apply {
+            action = BatteryService.ACTION_STOP_ALARM
+        }, 0, 2)
+        assertNull("Notification must be removed when stopped in silent mode", notifications.getNotification(2))
+
+        controller.destroy()
+        runBlocking { prefs.disableAllAlarms() }
+    }
 }
